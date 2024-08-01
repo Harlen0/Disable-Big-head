@@ -1,9 +1,10 @@
-_G.Disabled = true -- Desabilita o script original
+_G.HeadSize = Vector3.new(2, 1, 1) -- Ajuste esse valor conforme necessário
+_G.HumanoidRootPartSize = Vector3.new(5, 5, 5) -- Ajuste esse valor conforme necessário
+_G.Disabled = false
 
-local originalHeadSize = Vector3.new(2, 1, 1) -- Tamanho padrão da cabeça
-local originalHumanoidRootPartSize = Vector3.new(2, 2, 1) -- Tamanho padrão do HumanoidRootPart
+local localPlayer = game:GetService('Players').LocalPlayer
 
-local function revertHitbox(character)
+local function scaleHitbox(character)
     if character then
         local head = character:FindFirstChild("Head")
         local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
@@ -11,34 +12,47 @@ local function revertHitbox(character)
         if head then
             local mesh = head:FindFirstChildOfClass("SpecialMesh")
             if mesh then
-                mesh:Destroy() -- Remove o SpecialMesh
+                mesh.Scale = Vector3.new(_G.HeadSize.X / head.Size.X, _G.HeadSize.Y / head.Size.Y, _G.HeadSize.Z / head.Size.Z)
+            else
+                -- Se a cabeça não tiver um SpecialMesh, crie um
+                local newMesh = Instance.new("SpecialMesh", head)
+                newMesh.Scale = Vector3.new(_G.HeadSize.X / head.Size.X, _G.HeadSize.Y / head.Size.Y, _G.HeadSize.Z / head.Size.Z)
             end
-            head.Size = originalHeadSize
-            head.CanCollide = true -- Reativa a colisão para a cabeça
-            head.Transparency = 0 -- Remove a transparência
-            -- Remove qualquer outro SpecialMesh que possa estar causando problemas
-            for _, v in pairs(head:GetChildren()) do
-                if v:IsA("SpecialMesh") then
-                    v:Destroy()
-                end
-            end
+            head.Size = _G.HeadSize
+            head.CanCollide = false -- Desative a colisão para a cabeça
+            head.Transparency = 0.9 -- Adicione esta linha
         end
 
         if humanoidRootPart then
-            humanoidRootPart.Size = originalHumanoidRootPartSize
-            humanoidRootPart.CanCollide = true -- Reativa a colisão
-            humanoidRootPart.Transparency = 0 -- Remove a transparência
-            humanoidRootPart.BrickColor = BrickColor.new("Medium stone grey") -- Cor padrão
-            humanoidRootPart.Material = Enum.Material.Plastic -- Material padrão
+            humanoidRootPart.Size = _G.HumanoidRootPartSize
+            -- Remova ou comente as linhas a seguir para desativar a personalização do `HumanoidRootPart`
+            -- humanoidRootPart.Transparency = 0.7
+            -- humanoidRootPart.BrickColor = BrickColor.new("Really blue")
+            -- humanoidRootPart.Material = "Neon"
+            humanoidRootPart.CanCollide = false
         end
+    end
+end
 
-        -- Reverter todas as outras partes que possam ter sido modificadas
-        for _, part in ipairs(character:GetChildren()) do
-            if part:IsA("BasePart") and part ~= head and part ~= humanoidRootPart then
-                part.CanCollide = true
-                part.Transparency = 0
-            end
-        end
+local function resizeParts(character)
+    local head = character:FindFirstChild("Head")
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+
+    if not head then
+        -- Crie uma nova cabeça se não existir
+        local newHead = Instance.new("Part")
+        newHead.Name = "Head"
+        newHead.Size = _G.HeadSize
+        newHead.Transparency = 0.9 -- Adicione esta linha
+        newHead.Parent = character
+    else
+        head.Size = _G.HeadSize
+        head.CanCollide = false -- Desative a colisão para a cabeça
+        head.Transparency = 0.9 -- Adicione esta linha
+    end
+
+    if humanoidRootPart then
+        humanoidRootPart.Size = _G.HumanoidRootPartSize
     end
 end
 
@@ -46,53 +60,64 @@ local function onCharacterAdded(character)
     -- Aguarde o carregamento completo do personagem
     character:WaitForChild("Humanoid")
 
-    -- Reverte as partes
-    revertHitbox(character)
+    -- Redimensione as partes
+    resizeParts(character)
 
     -- Conecte-se ao evento Died do Humanoid para tratar o respawn
     character:WaitForChild("Humanoid").Died:Connect(function()
         -- Aguarde o respawn do personagem
         character:WaitForChild("Humanoid").Died:Wait()
 
-        -- Reverte as partes novamente após o respawn
-        revertHitbox(character)
+        -- Redimensione as partes novamente após o respawn
+        resizeParts(character)
     end)
 end
 
 local function onPlayerAdded(player)
-    -- Conecte-se ao evento CharacterAdded
-    player.CharacterAdded:Connect(onCharacterAdded)
+    -- Verifique se o jogador não é o jogador local
+    if player ~= localPlayer then
+        -- Conecte-se ao evento CharacterAdded
+        player.CharacterAdded:Connect(onCharacterAdded)
 
-    -- Aplique a reversão se o personagem já existir
-    if player.Character then
-        onCharacterAdded(player.Character)
+        -- Aplique o redimensionamento se o personagem já existir
+        if player.Character then
+            onCharacterAdded(player.Character)
+        end
     end
 end
 
 -- Conecte-se ao evento PlayerAdded para lidar com jogadores entrando no jogo
 game:GetService('Players').PlayerAdded:Connect(onPlayerAdded)
 
--- Aplique a reversão a todos os jogadores atuais
+-- Aplique o redimensionamento a todos os jogadores atuais
 for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
     onPlayerAdded(player)
 end
 
--- Loop contínuo para garantir que as hitboxes permaneçam no estado original
+-- Loop contínuo para garantir que as colisões estejam redimensionadas
 game:GetService('RunService').RenderStepped:Connect(function()
-    for _, player in pairs(game:GetService('Players'):GetPlayers()) do
-        pcall(function() 
-            revertHitbox(player.Character)
-        end)
+    if not _G.Disabled then
+        for _, player in pairs(game:GetService('Players'):GetPlayers()) do
+            if player ~= localPlayer then
+                pcall(function() 
+                    scaleHitbox(player.Character)
+                    -- Garanta que o tamanho da cabeça seja mantido
+                    if player.Character and player.Character:FindFirstChild("Head") then
+                        player.Character.Head.Size = _G.HeadSize
+                        player.Character.Head.CanCollide = false -- Desative a colisão para a cabeça
+                        player.Character.Head.Transparency = 0.9 -- Adicione esta linha
+                    end
+                end)
+            end
+        end
     end
 end)
 
 -- Desative a colisão com o personagem do jogador local
-local localPlayer = game:GetService('Players').LocalPlayer
-
 local function disableCollision(character)
     local head = character:FindFirstChild("Head")
     if head then
-        head.CanCollide = true
+        head.CanCollide = false
     end
 end
 
