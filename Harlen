@@ -1,0 +1,116 @@
+-- Desabilita o script original
+_G.Disabled = true
+
+-- Definições padrão para as partes do personagem
+local defaultHeadSize = Vector3.new(2, 1, 1)
+local defaultHumanoidRootPartSize = Vector3.new(2, 2, 1)
+local defaultBrickColor = BrickColor.new("Medium stone grey")
+local defaultMaterial = Enum.Material.Plastic
+
+-- Função para restaurar a cabeça do personagem
+local function restoreHead(head)
+    if head then
+        head.Size = defaultHeadSize
+        head.CanCollide = true
+        head.Transparency = 0
+        
+        -- Remove qualquer mesh especial que possa ter sido adicionada
+        local specialMesh = head:FindFirstChildOfClass("SpecialMesh")
+        if specialMesh then
+            specialMesh:Destroy()
+        end
+    end
+end
+
+-- Função para restaurar o HumanoidRootPart do personagem
+local function restoreHumanoidRootPart(humanoidRootPart)
+    if humanoidRootPart then
+        humanoidRootPart.Size = defaultHumanoidRootPartSize
+        humanoidRootPart.CanCollide = true
+        humanoidRootPart.Transparency = 0
+        humanoidRootPart.BrickColor = defaultBrickColor
+        humanoidRootPart.Material = defaultMaterial
+    end
+end
+
+-- Função para restaurar o personagem completo
+local function restoreCharacter(character)
+    if character then
+        local head = character:FindFirstChild("Head")
+        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+
+        -- Restaurar partes principais
+        restoreHead(head)
+        restoreHumanoidRootPart(humanoidRootPart)
+        
+        -- Restaurar outros objetos que possam ter sido alterados
+        for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "Head" and part.Name ~= "HumanoidRootPart" then
+                part.CanCollide = true
+                part.Transparency = 0
+                part.BrickColor = defaultBrickColor
+                part.Material = defaultMaterial
+            end
+        end
+    end
+end
+
+-- Função para lidar com a adição de um novo personagem
+local function onCharacterAdded(character)
+    -- Aguarde o carregamento completo do personagem
+    local humanoid = character:WaitForChild("Humanoid")
+    humanoid:WaitForChild("HumanoidRootPart")
+
+    -- Restaurar o personagem
+    restoreCharacter(character)
+
+    -- Conecte-se ao evento Died do Humanoid para tratar o respawn
+    humanoid.Died:Connect(function()
+        -- Aguarde o respawn do personagem
+        character:WaitForChild("Humanoid").Died:Wait()
+
+        -- Restaurar o personagem novamente após o respawn
+        restoreCharacter(character)
+    end)
+end
+
+-- Função para lidar com a adição de um novo jogador
+local function onPlayerAdded(player)
+    player.CharacterAdded:Connect(onCharacterAdded)
+
+    if player.Character then
+        onCharacterAdded(player.Character)
+    end
+end
+
+-- Conecte-se ao evento PlayerAdded
+game:GetService('Players').PlayerAdded:Connect(onPlayerAdded)
+
+-- Aplique a restauração a todos os jogadores atuais
+for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
+    onPlayerAdded(player)
+end
+
+-- Função para restaurar a colisão para o jogador local
+local localPlayer = game:GetService('Players').LocalPlayer
+
+local function restoreLocalPlayerCharacter(character)
+    if character then
+        -- Restaurar a colisão da cabeça do jogador local
+        local head = character:FindFirstChild("Head")
+        if head then
+            head.CanCollide = true
+        end
+
+        -- Restaurar o resto do personagem
+        restoreCharacter(character)
+    end
+end
+
+localPlayer.CharacterAdded:Connect(function(character)
+    restoreLocalPlayerCharacter(character)
+end)
+
+if localPlayer.Character then
+    restoreLocalPlayerCharacter(localPlayer.Character)
+end
