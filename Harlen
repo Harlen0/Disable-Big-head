@@ -16,6 +16,12 @@ local function revertHitbox(character)
             head.Size = originalHeadSize
             head.CanCollide = true -- Reativa a colisão para a cabeça
             head.Transparency = 0 -- Remove a transparência
+            -- Remove qualquer outro SpecialMesh que possa estar causando problemas
+            for _, v in pairs(head:GetChildren()) do
+                if v:IsA("SpecialMesh") then
+                    v:Destroy()
+                end
+            end
         end
 
         if humanoidRootPart then
